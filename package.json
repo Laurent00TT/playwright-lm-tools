@@ -5,6 +5,10 @@
 	"description": "Browser automation tools (pw_*) for GitHub Copilot agent mode via the native VS Code Language Model Tool API. Drives local Edge/Chrome with playwright-core (channel mode, no browser download, no MCP).",
 	"version": "0.1.0",
 	"license": "MIT",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/Laurent00TT/playwright-lm-tools"
+	},
 	"engines": {
 		"vscode": "^1.106.0"
 	},
@@ -241,7 +245,7 @@
 		"compile": "tsc -p .",
 		"watch": "tsc -watch -p .",
 		"vscode:prepublish": "npm run compile",
-		"package": "vsce package --allow-missing-repository"
+		"package": "vsce package"
 	},
 	"dependencies": {
 		"playwright-core": "~1.62.0"
