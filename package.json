@@ -1,0 +1,255 @@
+{
+	"name": "playwright-lm-tools",
+	"publisher": "Laurent00TT",
+	"displayName": "Playwright Browser Tools for Copilot",
+	"description": "Browser automation tools (pw_*) for GitHub Copilot agent mode via the native VS Code Language Model Tool API. Drives local Edge/Chrome with playwright-core (channel mode, no browser download, no MCP).",
+	"version": "0.1.0",
+	"license": "MIT",
+	"engines": {
+		"vscode": "^1.106.0"
+	},
+	"categories": [
+		"AI",
+		"Other"
+	],
+	"keywords": [
+		"copilot",
+		"agent",
+		"playwright",
+		"browser",
+		"language-model-tools"
+	],
+	"main": "./out/extension.js",
+	"activationEvents": [
+		"onLanguageModelTool:pw_navigate",
+		"onLanguageModelTool:pw_snapshot",
+		"onLanguageModelTool:pw_click",
+		"onLanguageModelTool:pw_type",
+		"onLanguageModelTool:pw_screenshot",
+		"onLanguageModelTool:pw_wait",
+		"onLanguageModelTool:pw_close"
+	],
+	"contributes": {
+		"configuration": {
+			"title": "Playwright LM Tools",
+			"properties": {
+				"pwTools.channel": {
+					"type": "string",
+					"enum": [
+						"msedge",
+						"chrome"
+					],
+					"default": "msedge",
+					"description": "使用本机哪个浏览器(playwright channel)。首选项启动失败时会自动尝试另一个。"
+				},
+				"pwTools.headless": {
+					"type": "boolean",
+					"default": false,
+					"description": "无头模式运行浏览器。默认 false,方便观察 agent 的操作过程。"
+				},
+				"pwTools.snapshotMaxChars": {
+					"type": "number",
+					"default": 24000,
+					"description": "返回给模型的无障碍树快照最大字符数,超出部分截断。设为 0 表示不限制。"
+				}
+			}
+		},
+		"languageModelTools": [
+			{
+				"name": "pw_navigate",
+				"displayName": "Browser: Navigate",
+				"toolReferenceName": "pwNavigate",
+				"canBeReferencedInPrompt": true,
+				"icon": "$(globe)",
+				"userDescription": "在受控浏览器中打开 URL(首次调用会启动本机 Edge/Chrome)",
+				"modelDescription": "Navigate the controlled browser to a URL. The local Edge/Chrome browser is launched automatically on first use. Returns the final URL, the page title and an accessibility snapshot of the page. Interactive elements in the snapshot carry refs like [ref=e12]; pass those refs to pw_click / pw_type.",
+				"inputSchema": {
+					"type": "object",
+					"properties": {
+						"url": {
+							"type": "string",
+							"description": "The URL to open, e.g. https://example.com. 'https://' is assumed when the scheme is missing."
+						}
+					},
+					"required": [
+						"url"
+					]
+				},
+				"tags": [
+					"browser",
+					"playwright"
+				]
+			},
+			{
+				"name": "pw_snapshot",
+				"displayName": "Browser: Snapshot",
+				"toolReferenceName": "pwSnapshot",
+				"canBeReferencedInPrompt": true,
+				"icon": "$(list-tree)",
+				"userDescription": "抓取当前页面的无障碍树快照(含元素 ref)",
+				"modelDescription": "Capture a text accessibility-tree snapshot of the current page. Interactive elements are annotated with refs like [ref=e12] which pw_click / pw_type accept. Prefer this over pw_screenshot for reading page content or locating elements. Refs go stale when the page changes — take a fresh snapshot before interacting if in doubt.",
+				"inputSchema": {
+					"type": "object",
+					"properties": {}
+				},
+				"tags": [
+					"browser",
+					"playwright"
+				]
+			},
+			{
+				"name": "pw_click",
+				"displayName": "Browser: Click",
+				"toolReferenceName": "pwClick",
+				"canBeReferencedInPrompt": true,
+				"icon": "$(inspect)",
+				"userDescription": "点击页面元素(按快照中的 ref)",
+				"modelDescription": "Click an element on the current page, identified by its ref from the most recent snapshot (returned by pw_snapshot, pw_navigate, pw_click or pw_type). Returns a fresh snapshot after the click. If the ref is reported stale, call pw_snapshot first and retry with a new ref.",
+				"inputSchema": {
+					"type": "object",
+					"properties": {
+						"ref": {
+							"type": "string",
+							"description": "Element ref from the latest snapshot, e.g. 'e12'."
+						},
+						"element": {
+							"type": "string",
+							"description": "Short human-readable description of the element, e.g. 'Login button'. Shown to the user in the tool-call UI."
+						}
+					},
+					"required": [
+						"ref",
+						"element"
+					]
+				},
+				"tags": [
+					"browser",
+					"playwright"
+				]
+			},
+			{
+				"name": "pw_type",
+				"displayName": "Browser: Type",
+				"toolReferenceName": "pwType",
+				"canBeReferencedInPrompt": true,
+				"icon": "$(edit)",
+				"userDescription": "向输入框输入文本(按快照中的 ref)",
+				"modelDescription": "Type text into an editable element identified by its ref from the most recent snapshot. By default the field is cleared and filled in one shot; set slowly=true to type character by character (for pages reacting to each keystroke), and submit=true to press Enter afterwards. Returns a fresh snapshot.",
+				"inputSchema": {
+					"type": "object",
+					"properties": {
+						"ref": {
+							"type": "string",
+							"description": "Element ref from the latest snapshot, e.g. 'e12'."
+						},
+						"element": {
+							"type": "string",
+							"description": "Short human-readable description of the element, e.g. 'Search box'."
+						},
+						"text": {
+							"type": "string",
+							"description": "The text to type."
+						},
+						"submit": {
+							"type": "boolean",
+							"description": "Press Enter after typing (submits most forms)."
+						},
+						"slowly": {
+							"type": "boolean",
+							"description": "Type one character at a time instead of filling at once."
+						}
+					},
+					"required": [
+						"ref",
+						"element",
+						"text"
+					]
+				},
+				"tags": [
+					"browser",
+					"playwright"
+				]
+			},
+			{
+				"name": "pw_screenshot",
+				"displayName": "Browser: Screenshot",
+				"toolReferenceName": "pwScreenshot",
+				"canBeReferencedInPrompt": true,
+				"icon": "$(device-camera)",
+				"userDescription": "截取当前页面截图(PNG)",
+				"modelDescription": "Take a PNG screenshot of the current page and save it to a temp file. Returns the file path, and the image itself when the editor supports inline image tool results. Use pw_snapshot instead when you need to read text or find elements — the accessibility snapshot is cheaper and machine-readable.",
+				"inputSchema": {
+					"type": "object",
+					"properties": {
+						"fullPage": {
+							"type": "boolean",
+							"description": "Capture the full scrollable page instead of just the viewport."
+						}
+					}
+				},
+				"tags": [
+					"browser",
+					"playwright"
+				]
+			},
+			{
+				"name": "pw_wait",
+				"displayName": "Browser: Wait",
+				"toolReferenceName": "pwWait",
+				"canBeReferencedInPrompt": true,
+				"icon": "$(clock)",
+				"userDescription": "等待固定时长或等待文本出现",
+				"modelDescription": "Wait for a fixed number of seconds, or wait until the given text becomes visible on the page, or both (text with a timeout). Provide at least one of 'seconds' and 'text'. Seconds are capped at 30. Returns a fresh snapshot afterwards.",
+				"inputSchema": {
+					"type": "object",
+					"properties": {
+						"seconds": {
+							"type": "number",
+							"description": "How long to wait, in seconds (max 30). When 'text' is also given, this is the wait timeout."
+						},
+						"text": {
+							"type": "string",
+							"description": "Wait until this text is visible on the page."
+						}
+					}
+				},
+				"tags": [
+					"browser",
+					"playwright"
+				]
+			},
+			{
+				"name": "pw_close",
+				"displayName": "Browser: Close",
+				"toolReferenceName": "pwClose",
+				"canBeReferencedInPrompt": true,
+				"icon": "$(close)",
+				"userDescription": "关闭受控浏览器",
+				"modelDescription": "Close the controlled browser and release its resources. Call this when the browsing task is finished. The next pw_navigate will start a fresh browser.",
+				"inputSchema": {
+					"type": "object",
+					"properties": {}
+				},
+				"tags": [
+					"browser",
+					"playwright"
+				]
+			}
+		]
+	},
+	"scripts": {
+		"compile": "tsc -p .",
+		"watch": "tsc -watch -p .",
+		"vscode:prepublish": "npm run compile",
+		"package": "vsce package --allow-missing-repository"
+	},
+	"dependencies": {
+		"playwright-core": "~1.62.0"
+	},
+	"devDependencies": {
+		"@types/node": "^20.14.0",
+		"@types/vscode": "^1.106.0",
+		"@vscode/vsce": "^3.2.0",
+		"typescript": "^5.6.0"
+	}
+}
