@@ -3,7 +3,7 @@
 	"publisher": "Laurent00TT",
 	"displayName": "Playwright Browser Tools for Copilot",
 	"description": "Browser automation tools (pw_*) for GitHub Copilot agent mode via the native VS Code Language Model Tool API. Drives local Edge/Chrome with playwright-core (channel mode, no browser download, no MCP).",
-	"version": "0.1.0",
+	"version": "0.2.0",
 	"license": "MIT",
 	"repository": {
 		"type": "git",
@@ -31,7 +31,20 @@
 		"onLanguageModelTool:pw_type",
 		"onLanguageModelTool:pw_screenshot",
 		"onLanguageModelTool:pw_wait",
-		"onLanguageModelTool:pw_close"
+		"onLanguageModelTool:pw_close",
+		"onLanguageModelTool:pw_verify",
+		"onLanguageModelTool:pw_console",
+		"onLanguageModelTool:pw_handle_dialog",
+		"onLanguageModelTool:pw_select_option",
+		"onLanguageModelTool:pw_press_key",
+		"onLanguageModelTool:pw_hover",
+		"onLanguageModelTool:pw_upload",
+		"onLanguageModelTool:pw_network",
+		"onLanguageModelTool:pw_save_state",
+		"onLanguageModelTool:pw_load_state",
+		"onLanguageModelTool:pw_resize",
+		"onLanguageModelTool:pw_scroll",
+		"onLanguageModelTool:pw_back"
 	],
 	"contributes": {
 		"configuration": {
@@ -55,6 +68,26 @@
 					"type": "number",
 					"default": 24000,
 					"description": "返回给模型的无障碍树快照最大字符数,超出部分截断。设为 0 表示不限制。"
+				},
+				"pwTools.navigationTimeoutMs": {
+					"type": "number",
+					"default": 30000,
+					"description": "pw_navigate / pw_back 的导航超时(毫秒)。CI 等慢环境可调大。"
+				},
+				"pwTools.actionTimeoutMs": {
+					"type": "number",
+					"default": 10000,
+					"description": "点击、输入等元素动作的超时(毫秒)。"
+				},
+				"pwTools.screenshotOnVerifyFail": {
+					"type": "boolean",
+					"default": true,
+					"description": "pw_verify 断言失败时自动截图取证。"
+				},
+				"pwTools.stateDir": {
+					"type": "string",
+					"default": "",
+					"description": "pw_save_state / pw_load_state 的存储目录。留空则使用工作区下的 .pw-state/。"
 				}
 			}
 		},
@@ -238,11 +271,381 @@
 					"browser",
 					"playwright"
 				]
+			},
+			{
+				"name": "pw_verify",
+				"displayName": "Browser: Verify",
+				"toolReferenceName": "pwVerify",
+				"canBeReferencedInPrompt": true,
+				"icon": "$(pass)",
+				"userDescription": "断言页面状态,返回确定性的 PASS/FAIL",
+				"modelDescription": "Assert the state of the current page and get a deterministic PASS/FAIL verdict. assertion='text_visible' checks the given text is visible on the page; 'element_visible' checks the element with the given ref is visible; 'value' compares an input element's current value against 'expected'. On FAIL a screenshot is attached automatically (configurable). ALWAYS use this tool for test conclusions instead of judging from snapshots.",
+				"inputSchema": {
+					"type": "object",
+					"properties": {
+						"assertion": {
+							"type": "string",
+							"enum": ["text_visible", "element_visible", "value"],
+							"description": "Which assertion to run."
+						},
+						"text": {
+							"type": "string",
+							"description": "For text_visible: the text expected to be visible."
+						},
+						"ref": {
+							"type": "string",
+							"description": "For element_visible / value: element ref from the latest snapshot."
+						},
+						"element": {
+							"type": "string",
+							"description": "Short human-readable description of the element."
+						},
+						"expected": {
+							"type": "string",
+							"description": "For value: the expected input value."
+						}
+					},
+					"required": ["assertion"]
+				},
+				"tags": [
+					"browser",
+					"playwright",
+					"testing"
+				]
+			},
+			{
+				"name": "pw_console",
+				"displayName": "Browser: Console",
+				"toolReferenceName": "pwConsole",
+				"canBeReferencedInPrompt": true,
+				"icon": "$(terminal)",
+				"userDescription": "读取浏览器控制台消息与页面错误",
+				"modelDescription": "Read the browser console messages and uncaught page errors recorded since the browser started (ring buffer, all tabs). Set onlyErrors=true to see only errors; clear=true empties the buffer after reading. Use when diagnosing why a page or test step failed.",
+				"inputSchema": {
+					"type": "object",
+					"properties": {
+						"onlyErrors": {
+							"type": "boolean",
+							"description": "Only return error-level messages and uncaught exceptions."
+						},
+						"clear": {
+							"type": "boolean",
+							"description": "Clear the buffer after reading."
+						}
+					}
+				},
+				"tags": [
+					"browser",
+					"playwright",
+					"testing"
+				]
+			},
+			{
+				"name": "pw_handle_dialog",
+				"displayName": "Browser: Handle Dialog",
+				"toolReferenceName": "pwHandleDialog",
+				"canBeReferencedInPrompt": true,
+				"icon": "$(comment-discussion)",
+				"userDescription": "处理当前挂起的 JS 弹窗(alert/confirm/prompt)",
+				"modelDescription": "Handle the currently open JavaScript dialog (alert/confirm/prompt). While a dialog is open the page is blocked and other tools refuse to run. accept=true confirms it (optionally typing promptText into a prompt); accept=false dismisses it. Returns a fresh snapshot afterwards.",
+				"inputSchema": {
+					"type": "object",
+					"properties": {
+						"accept": {
+							"type": "boolean",
+							"description": "true to accept/confirm, false to dismiss/cancel."
+						},
+						"promptText": {
+							"type": "string",
+							"description": "Text to enter when accepting a prompt dialog."
+						}
+					},
+					"required": ["accept"]
+				},
+				"tags": [
+					"browser",
+					"playwright"
+				]
+			},
+			{
+				"name": "pw_select_option",
+				"displayName": "Browser: Select Option",
+				"toolReferenceName": "pwSelectOption",
+				"canBeReferencedInPrompt": true,
+				"icon": "$(checklist)",
+				"userDescription": "在原生下拉框中选择选项(按 ref)",
+				"modelDescription": "Select one or more options in a native <select> dropdown identified by its snapshot ref. Each value is matched against the visible option label first, then against the option's value attribute. Returns a fresh snapshot. For custom (non-<select>) dropdowns, use pw_click on the option's own ref instead.",
+				"inputSchema": {
+					"type": "object",
+					"properties": {
+						"ref": {
+							"type": "string",
+							"description": "Element ref of the <select> from the latest snapshot."
+						},
+						"element": {
+							"type": "string",
+							"description": "Short human-readable description, e.g. 'Country dropdown'."
+						},
+						"values": {
+							"type": "array",
+							"items": { "type": "string" },
+							"description": "Option labels (as shown in the snapshot) or value attributes to select."
+						}
+					},
+					"required": ["ref", "element", "values"]
+				},
+				"tags": [
+					"browser",
+					"playwright"
+				]
+			},
+			{
+				"name": "pw_press_key",
+				"displayName": "Browser: Press Key",
+				"toolReferenceName": "pwPressKey",
+				"canBeReferencedInPrompt": true,
+				"icon": "$(record-keys)",
+				"userDescription": "按下键盘按键或组合键",
+				"modelDescription": "Press a keyboard key or shortcut, e.g. 'Escape', 'Tab', 'Enter', 'ArrowDown', 'Control+A'. When ref is given the key is sent to that element (it is focused first); otherwise it goes to the page. Returns a fresh snapshot.",
+				"inputSchema": {
+					"type": "object",
+					"properties": {
+						"key": {
+							"type": "string",
+							"description": "Key name or combination, e.g. 'Escape', 'Control+A'."
+						},
+						"ref": {
+							"type": "string",
+							"description": "Optional element ref to receive the key."
+						},
+						"element": {
+							"type": "string",
+							"description": "Short description of the target element, if ref is given."
+						}
+					},
+					"required": ["key"]
+				},
+				"tags": [
+					"browser",
+					"playwright"
+				]
+			},
+			{
+				"name": "pw_hover",
+				"displayName": "Browser: Hover",
+				"toolReferenceName": "pwHover",
+				"canBeReferencedInPrompt": true,
+				"icon": "$(eye)",
+				"userDescription": "悬停在页面元素上(如展开悬停菜单)",
+				"modelDescription": "Hover the mouse over an element identified by its snapshot ref — e.g. to reveal a hover menu or tooltip. Returns a fresh snapshot that includes any newly revealed content.",
+				"inputSchema": {
+					"type": "object",
+					"properties": {
+						"ref": {
+							"type": "string",
+							"description": "Element ref from the latest snapshot."
+						},
+						"element": {
+							"type": "string",
+							"description": "Short human-readable description of the element."
+						}
+					},
+					"required": ["ref", "element"]
+				},
+				"tags": [
+					"browser",
+					"playwright"
+				]
+			},
+			{
+				"name": "pw_upload",
+				"displayName": "Browser: Upload Files",
+				"toolReferenceName": "pwUpload",
+				"canBeReferencedInPrompt": true,
+				"icon": "$(cloud-upload)",
+				"userDescription": "向文件输入框上传本地文件",
+				"modelDescription": "Set files on a file input identified by its snapshot ref. Paths must be absolute paths to existing local files. If the ref is a button that opens a file chooser rather than an <input type=file>, the chooser is intercepted automatically. Returns a fresh snapshot.",
+				"inputSchema": {
+					"type": "object",
+					"properties": {
+						"ref": {
+							"type": "string",
+							"description": "Element ref of the file input or the button that opens the chooser."
+						},
+						"element": {
+							"type": "string",
+							"description": "Short human-readable description of the element."
+						},
+						"paths": {
+							"type": "array",
+							"items": { "type": "string" },
+							"description": "Absolute paths of local files to upload."
+						}
+					},
+					"required": ["ref", "element", "paths"]
+				},
+				"tags": [
+					"browser",
+					"playwright"
+				]
+			},
+			{
+				"name": "pw_network",
+				"displayName": "Browser: Network",
+				"toolReferenceName": "pwNetwork",
+				"canBeReferencedInPrompt": true,
+				"icon": "$(pulse)",
+				"userDescription": "查看记录的网络请求与响应",
+				"modelDescription": "List the network requests recorded since the browser started (id, method, status, URL), optionally filtered by a URL substring. Pass 'id' to get one request's details, including content type and a response-body snippet for text/JSON responses. Use to verify API calls and diagnose 4xx/5xx failures.",
+				"inputSchema": {
+					"type": "object",
+					"properties": {
+						"urlFilter": {
+							"type": "string",
+							"description": "Only list requests whose URL contains this substring."
+						},
+						"id": {
+							"type": "number",
+							"description": "Return full details for the request with this id."
+						}
+					}
+				},
+				"tags": [
+					"browser",
+					"playwright",
+					"testing"
+				]
+			},
+			{
+				"name": "pw_save_state",
+				"displayName": "Browser: Save Session State",
+				"toolReferenceName": "pwSaveState",
+				"canBeReferencedInPrompt": true,
+				"icon": "$(save)",
+				"userDescription": "保存登录态(cookies + localStorage)到文件",
+				"modelDescription": "Save the browser's storage state (cookies + localStorage — e.g. a login session) to a named file under the workspace's .pw-state directory. The standard testing pattern: log in once interactively, save the state, then restore it with pw_load_state in later runs instead of logging in again.",
+				"inputSchema": {
+					"type": "object",
+					"properties": {
+						"name": {
+							"type": "string",
+							"description": "State name (file name), default 'default'."
+						}
+					}
+				},
+				"tags": [
+					"browser",
+					"playwright",
+					"testing"
+				]
+			},
+			{
+				"name": "pw_load_state",
+				"displayName": "Browser: Load Session State",
+				"toolReferenceName": "pwLoadState",
+				"canBeReferencedInPrompt": true,
+				"icon": "$(folder-opened)",
+				"userDescription": "恢复之前保存的登录态",
+				"modelDescription": "Restore a storage state previously saved with pw_save_state. A fresh browser context is created with those cookies/localStorage; navigate to the app afterwards — the saved login should be in effect.",
+				"inputSchema": {
+					"type": "object",
+					"properties": {
+						"name": {
+							"type": "string",
+							"description": "State name used at save time, default 'default'."
+						}
+					}
+				},
+				"tags": [
+					"browser",
+					"playwright",
+					"testing"
+				]
+			},
+			{
+				"name": "pw_resize",
+				"displayName": "Browser: Resize Viewport",
+				"toolReferenceName": "pwResize",
+				"canBeReferencedInPrompt": true,
+				"icon": "$(screen-full)",
+				"userDescription": "调整浏览器视口尺寸(响应式测试)",
+				"modelDescription": "Resize the browser viewport to the given width and height in pixels (100-5000). Use for responsive-layout testing, e.g. 375x812 for mobile. Returns a fresh snapshot of the re-laid-out page.",
+				"inputSchema": {
+					"type": "object",
+					"properties": {
+						"width": {
+							"type": "number",
+							"description": "Viewport width in pixels."
+						},
+						"height": {
+							"type": "number",
+							"description": "Viewport height in pixels."
+						}
+					},
+					"required": ["width", "height"]
+				},
+				"tags": [
+					"browser",
+					"playwright",
+					"testing"
+				]
+			},
+			{
+				"name": "pw_scroll",
+				"displayName": "Browser: Scroll",
+				"toolReferenceName": "pwScroll",
+				"canBeReferencedInPrompt": true,
+				"icon": "$(arrow-down)",
+				"userDescription": "滚动页面或滚动到指定元素",
+				"modelDescription": "Scroll the page. With ref: scroll that element into view. Without ref: scroll the page up/down by 'pixels' (default 720). Use to trigger lazy-loaded content or reach off-screen elements. Returns a fresh snapshot.",
+				"inputSchema": {
+					"type": "object",
+					"properties": {
+						"direction": {
+							"type": "string",
+							"enum": ["up", "down"],
+							"description": "Scroll direction when no ref is given (default down)."
+						},
+						"pixels": {
+							"type": "number",
+							"description": "How far to scroll in pixels (default 720)."
+						},
+						"ref": {
+							"type": "string",
+							"description": "Element ref to scroll into view."
+						},
+						"element": {
+							"type": "string",
+							"description": "Short description of the target element, if ref is given."
+						}
+					}
+				},
+				"tags": [
+					"browser",
+					"playwright"
+				]
+			},
+			{
+				"name": "pw_back",
+				"displayName": "Browser: Back",
+				"toolReferenceName": "pwBack",
+				"canBeReferencedInPrompt": true,
+				"icon": "$(arrow-left)",
+				"userDescription": "返回浏览历史的上一页",
+				"modelDescription": "Navigate back to the previous page in the browser history. Returns a fresh snapshot, or a notice when there is no history to go back to.",
+				"inputSchema": {
+					"type": "object",
+					"properties": {}
+				},
+				"tags": [
+					"browser",
+					"playwright"
+				]
 			}
 		]
 	},
 	"scripts": {
-		"compile": "tsc -p .",
+		"compile": "node -e \"require('fs').rmSync('out',{recursive:true,force:true})\" && tsc -p .",
 		"watch": "tsc -watch -p .",
 		"vscode:prepublish": "npm run compile",
 		"package": "vsce package"

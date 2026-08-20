@@ -1,3 +1,5 @@
 node_modules/
 out/
 *.vsix
+# 登录态文件含 cookies,禁止入库
+.pw-state/

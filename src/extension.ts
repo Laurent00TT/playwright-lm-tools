@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import { BrowserManager } from './browserManager';
-import { registerTools } from './tools';
+import { registerTools } from './tools/index';
 
 let manager: BrowserManager | undefined;
 

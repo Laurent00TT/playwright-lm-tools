@@ -5,3 +5,5 @@ src/**
 **/tsconfig.json
 **/*.map
 **/*.ts
+.pw-state/**
+**/.pw-state/**
